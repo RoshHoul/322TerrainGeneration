@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -32,6 +33,7 @@ struct Matrix4x4
 	float entries[16];
 };
 
+
 static mat4 projMat = mat4(1.0);
 
 static const Matrix4x4 IDENTITY_MATRIX4x4 =
@@ -42,6 +44,14 @@ static const Matrix4x4 IDENTITY_MATRIX4x4 =
 		0.0, 0.0, 1.0, 0.0,
 		0.0, 0.0, 0.0, 1.0
 	}
+};
+
+struct Material {
+	vec4 ambRefl;
+	vec4 difRefl;
+	vec4 specRefl;
+	vec4 emitCols;
+	float shininess;
 };
 
 static enum buffer { TERRAIN_VERTICES };
@@ -81,14 +91,15 @@ char* readTextFile(char* aTextFile)
 	return content;
 }
 
-struct Material {
-	vec4 ambRefl;
-	vec4 difRefl;
-	vec4 specRefl;
-	vec4 emitCols;
-	float shininess;
-};
-
+void shaderCompileTest(GLuint shader) {
+	GLint result = GL_FALSE;
+	int logLength;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
+	glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+	std::vector<GLchar> vertShaderError((logLength > 1) ? logLength : 1);
+	glGetShaderInfoLog(shader, logLength, NULL, &vertShaderError[0]);
+	std::cout << &vertShaderError[0] << std::endl;
+}
 
 float randomFloat(float min, float max)
 {
@@ -279,6 +290,16 @@ void setup(void)
 	}
 
 
+	static const Material terrainFandB = {
+		vec4(1.0, 1.0, 1.0, 1.0),
+		vec4(1.0, 1.0, 1.0, 1.0),
+		vec4(1.0, 1.0, 1.0, 1.0),
+		vec4(1.0, 1.0, 1.0, 1.0),
+		50.0f
+	};
+
+	static const vec4 globAmb = vec4(0.2f, 0.2f, 0.2f, 1.0f);
+
 	glClearColor(1.0, 1.0, 1.0, 0.0);
 
 	// Create shader program executable - read, compile and link shaders
@@ -286,11 +307,15 @@ void setup(void)
 	vertexShaderId = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShaderId, 1, (const char**)&vertexShader, NULL);
 	glCompileShader(vertexShaderId);
+	std::cout << "VERTEX: " << std::endl;
+	shaderCompileTest(vertexShaderId);
 
 	char* fragmentShader = readTextFile("fragmentShader.glsl");
 	fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragmentShaderId, 1, (const char**)&fragmentShader, NULL);
 	glCompileShader(fragmentShaderId);
+	std::cout << "FRAGMENT: " << std::endl;
+	shaderCompileTest(fragmentShaderId);
 
 	programId = glCreateProgram();
 	glAttachShader(programId, vertexShaderId);
@@ -318,6 +343,13 @@ void setup(void)
 	glUniformMatrix4fv(projMatLoc, 1, GL_FALSE, value_ptr(projMat));
 	
 
+	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.ambRefl"), 1, &terrainFandB.ambRefl[0]);
+	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.difRefl"), 1, &terrainFandB.difRefl[0]);
+	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.specRefl"), 1, &terrainFandB.specRefl[0]);
+	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.emitCols"), 1, &terrainFandB.emitCols[0]);
+	glUniform4fv(glGetUniformLocation(programId, "terrainFandB.emitCols"), 1, &terrainFandB.emitCols[0]);
+
+	glUniform4fv(glGetUniformLocation(programId, "globAmb"), 1, &globAmb[0]);
 
 	///////////////////////////////////////
 
@@ -336,13 +368,6 @@ void drawScene(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	static const Material terrainFandB = {
-		vec4(1.0, 1.0, 1.0, 1.0),
-		vec4(1.0, 1.0, 1.0, 1.0),
-		vec4(1.0, 1.0, 1.0, 1.0),
-		vec4(1.0, 1.0, 1.0, 1.0),
-		50.0f
-	};
 
 	// For each row - draw the triangle strip
 	for (int i = 0; i < MAP_SIZE - 1; i++)
@@ -375,6 +400,16 @@ void keyInput(unsigned char key, int x, int y)
 // Main routine.
 int main(int argc, char* argv[])
 {
+
+
+	static const Material terrainFandB = {
+		vec4(1.0, 1.0, 1.0, 1.0),
+		vec4(1.0, 1.0, 1.0, 1.0),
+		vec4(1.0, 1.0, 1.0, 1.0),
+		vec4(1.0, 1.0, 1.0, 1.0),
+		50.0f
+	};
+
 	glutInit(&argc, argv);
 
 	// Set the version of OpenGL (4.2)
@@ -403,7 +438,8 @@ int main(int argc, char* argv[])
 	setup();
 
 	glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-	glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+
+	glm::vec3 cameraTarget = glm::vec3(-2.5f, -2.5f, -10.0f); // 5x5 gri
 	glm::vec3 cameraDirection = glm::normalize(cameraPos - cameraTarget);
 	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
 	glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
@@ -412,8 +448,9 @@ int main(int argc, char* argv[])
 
 
 	glm::mat4 view;
-	//view = glm::lookAt(cameraPos, cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
+	//?view = glm::lookAt(cameraPos, cameraTarget, glm::vec3(0.0f, 1.0f, 0.0f));
 	
+
 
 	//float rFloat = randomFloat(-1.0f, 1.0f);
 	//cout << "Random number generated: " << rFloat << endl;
