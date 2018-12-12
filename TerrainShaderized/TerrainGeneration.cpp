@@ -24,8 +24,8 @@ const int SCREEN_HEIGHT = 500;
 
 struct Vertex
 {
-	float coords[4];
-	float colors[4];
+	vec4 coords;
+	vec3 normals;
 };
 
 struct Matrix4x4
@@ -54,6 +54,13 @@ struct Material {
 	float shininess;
 };
 
+struct Light {
+	vec4 ambCols;
+	vec4 difCols;
+	vec4 specCols;
+	vec4 coords;
+};
+
 static enum buffer { TERRAIN_VERTICES };
 static enum object { TERRAIN };
 
@@ -65,12 +72,15 @@ const int verticesPerStrip = 2 * MAP_SIZE;
 
 unsigned int terrainIndexData[numStripsRequired][verticesPerStrip];
 
+static mat3 normalMat = mat3(1.0);
+
 static unsigned int
 programId,
 vertexShaderId,
 fragmentShaderId,
 modelViewMatLoc,
 projMatLoc,
+normalMatLoc,
 buffer[1],
 vao[1];
 
@@ -107,24 +117,6 @@ float randomFloat(float min, float max)
 	float diff = max - min;
 	float r = random * diff;
 	return min + r;
-}
-
-void diamond_step(float map[MAP_SIZE][MAP_SIZE], int sideLength, int halfSide, int size, int yRange, int x, int y) {
-	double avg = map[(x - halfSide + size - 1) % (size - 1)][y] +
-		map[(x + halfSide) % (size - 1)][y] +
-		map[x][(y + halfSide) % (size - 1)] +
-		map[x][(y - halfSide + size - 1) % (size - 1)];
-	avg /= 4.0 + randomFloat(-1.0f, 1.0f);
-	map[x][y] = avg;
-
-	if (x == 0) map[size - 1][y] = avg;
-	if (y == 0) map[x][size - 1] = avg;
-}
-
-void square_step(float map[MAP_SIZE][MAP_SIZE], int sideLength, int halfSide, int size, int yRange, int x, int y) {
-	double avg = map[x][y] + map[x + sideLength][y] + map[x][y + sideLength] + map[x + sideLength][y + sideLength];
-	avg /= 4.0;
-	map[x + halfSide][y + halfSide] = avg + randomFloat(-1.0f, 1.0f);
 }
 
 inline static float random(int range) {
@@ -216,6 +208,40 @@ void diamondSquare(float map[MAP_SIZE][MAP_SIZE], int size) {
 	}
 }
 
+float height(vec3 point) {
+	return point.y;
+}
+
+void normals(Vertex point) {
+	//for (int i = 0; i < point.coords)
+}
+
+vector<vec3> ListOfNormals;
+vector<vec3> CalculateNormals()
+{
+	vec3 v0, v1, v2, normal;
+
+	for (int i = 0; i < MAP_SIZE; i++)
+	{
+		v0 = vec3(terrainVertices[i + 0].coords);
+		v1 = vec3(terrainVertices[i + 1].coords);
+		v2 = vec3(terrainVertices[i + 2].coords);
+
+		vec3 e1 = v1 - v0;
+		vec3 e2 = v2 - v1;
+		vec3 e3 = v2 - v1;
+
+		normal = cross(e1, e2);
+		cout << "preNorm: " << normal.z << endl;
+		normal = normalize(normal);
+
+		terrainVertices[i + 0].normals += normal;
+	//	ListOfNormals.push_back(normalize(normal));
+		
+		cout << normal.z << endl;
+	}
+	return ListOfNormals;
+}
 
 // Initialization routine.
 void setup(void)
@@ -239,26 +265,6 @@ void setup(void)
 
 	diamondSquare(terrain, MAP_SIZE);
 
-/*	while (step_size >= 1) {
-
-		for (int x = 0; x < MAP_SIZE - 1; x += step_size) {
-			for (int y = 0; y < MAP_SIZE - 1; y += step_size) {
-				square_step(terrain, step_size, step_size / 2, MAP_SIZE - 1, H, x, y);
-			}
-		}
-
-		for (int x = 0; x < MAP_SIZE - 1; x += step_size) {
-			for (int y = 0; y < MAP_SIZE - 1; y += step_size) {
-				diamond_step(terrain, step_size, step_size / 2, MAP_SIZE - 1, H, x, y);
-			}
-		}
-
-
-
-		rand_max = rand_max * pow(2, -H);
-		step_size /= 2;
-	} */
-
 	// Intialise vertex array
 	int i = 0;
 
@@ -267,9 +273,13 @@ void setup(void)
 		for (int x = 0; x < MAP_SIZE; x++)
 		{
 			// Set the coords (1st 4 elements) and a default colour of black (2nd 4 elements) 
-			terrainVertices[i] = { { (float)x, terrain[x][z], (float)z, 1.0 }, { 0.0, 0.0, 0.0, 1.0 } };
+			terrainVertices[i] = { { vec4((float)x, terrain[x][z], (float)z, 1.0) }	};
+
 			i++;
 		}
+	}
+
+	for (int i = 0; i < MAP_SIZE; i++) {
 	}
 
 	// Now build the index data 
@@ -289,6 +299,12 @@ void setup(void)
 		}
 	}
 
+	CalculateNormals();
+	for (int k = 0; k < MAP_SIZE - 1; k++)
+	{
+	//	terrainVertices[k].normals = normalize(ListOfNormals[k]);
+
+	}
 
 	static const Material terrainFandB = {
 		vec4(1.0, 1.0, 1.0, 1.0),
@@ -296,6 +312,13 @@ void setup(void)
 		vec4(1.0, 1.0, 1.0, 1.0),
 		vec4(1.0, 1.0, 1.0, 1.0),
 		50.0f
+	};
+
+	static const Light light0 = {
+		vec4(0.0f, 0.0f, 0.0f, 1.0f),
+		vec4(1.0f, 1.0f, 1.0f, 1.0f),
+		vec4(1.0f, 1.0f, 1.0f, 1.0f),
+		vec4(1.0f, 1.0f, 0.0f, 0.0f),
 	};
 
 	static const vec4 globAmb = vec4(0.2f, 0.2f, 0.2f, 1.0f);
@@ -310,6 +333,7 @@ void setup(void)
 	std::cout << "VERTEX: " << std::endl;
 	shaderCompileTest(vertexShaderId);
 
+	GLenum err;
 	char* fragmentShader = readTextFile("fragmentShader.glsl");
 	fragmentShaderId = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragmentShaderId, 1, (const char**)&fragmentShader, NULL);
@@ -333,7 +357,7 @@ void setup(void)
 
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]), 0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[0]), (GLvoid*)sizeof(terrainVertices[0].coords));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(terrainVertices[1]), (GLvoid*)sizeof(terrainVertices[1].coords));
 	glEnableVertexAttribArray(1);
 	///////////////////////////////////////
 
@@ -351,14 +375,40 @@ void setup(void)
 
 	glUniform4fv(glGetUniformLocation(programId, "globAmb"), 1, &globAmb[0]);
 
+	glUniform4fv(glGetUniformLocation(programId, "light0.ambCols"), 1, &light0.ambCols[0]);
+	glUniform4fv(glGetUniformLocation(programId, "light0.difCols"), 1, &light0.difCols[0]);
+	glUniform4fv(glGetUniformLocation(programId, "light0.specCols"), 1, &light0.specCols[0]);
+	glUniform4fv(glGetUniformLocation(programId, "light0.coords"), 1, &light0.coords[0]);
+	
+
 	///////////////////////////////////////
 
 	// Obtain modelview matrix uniform location and set value.
 	mat4 modelViewMat = mat4(1.0);
+
 	// Move terrain into view - glm::translate replaces glTranslatef
-	modelViewMat = translate(modelViewMat, vec3(-2.5f, -2.5f, -10.0f)); // 5x5 grid
+	modelViewMat = translate(modelViewMat, vec3(-16.0f, 0.0f, -30.0f)); // 5x5 grid
 	modelViewMatLoc = glGetUniformLocation(programId, "modelViewMat");
 	glUniformMatrix4fv(modelViewMatLoc, 1, GL_FALSE, value_ptr(modelViewMat));
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		cerr << " OpenGL Error: " << endl;
+	}
+
+
+	normalMatLoc = glGetUniformLocation(programId, "normalMat");
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		cerr << " OpenGL Error: " << endl;
+	}
+
+	normalMat = transpose(inverse(mat3(modelViewMat)));
+	glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, value_ptr(normalMat));
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		cerr << " OpenGL Error: " << endl;
+	}
+
 
 	///////////////////////////////////////
 }
@@ -436,6 +486,7 @@ int main(int argc, char* argv[])
 	glewInit();
 	srand(time(NULL));
 	setup();
+
 
 	glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 
