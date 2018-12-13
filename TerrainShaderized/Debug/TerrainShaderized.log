@@ -2,6 +2,12 @@
 c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(64): warning C4091: 'static ': ignored on left of 'buffer' when no variable is declared
 c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(65): warning C4091: 'static ': ignored on left of 'object' when no variable is declared
 c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(123): warning C4244: 'return': conversion from 'int' to 'float', possible loss of data
-c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(151): warning C4244: '=': conversion from 'int' to 'float', possible loss of data
-c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(487): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(141): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(148): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(155): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(162): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(166): warning C4244: 'return': conversion from 'int' to 'float', possible loss of data
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(301): warning C4305: 'argument': truncation from 'double' to 'float'
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(371): warning C4101: 'err': unreferenced local variable
+c:\uni work\3rd year 1st half\322 graphics programming\procedural generation\terrainshaderized\terraingeneration.cpp(509): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
   TerrainShaderized.vcxproj -> C:\Uni Work\3rd year 1st half\322 Graphics Programming\Procedural Generation\TerrainShaderized\Debug\TerrainShaderized.exe

@@ -123,90 +123,121 @@ inline static float random(int range) {
 	return (rand() % (range * 2)) - range;
 }
 
-void diamondStep(float map[MAP_SIZE][MAP_SIZE], int x, int z, int reach) {
-	int count = 0;
-	float avg = 0.0f;
-	if (x - reach >= 0) {
-		avg += map[x - reach][z];
-		count++;
-	}
-
-	if (x + reach < MAP_SIZE) {
-		avg += map[x + reach][z];
-		count++;
-	}
-
-	if (z - reach >= 0) {
-		avg += map[x][z - reach];
-		count++;
-	}
-
-	if (z + reach < MAP_SIZE) {
-		avg += map[x][z + reach];
-		count++;
-	}
-
-	avg += random(reach);
-	avg /= count;
-	map[x][z] = (int)avg;
+bool inDimensions(int x, int z) {
+	return x >= 0 && x < MAP_SIZE && z >= 0 && z < MAP_SIZE;
 }
 
-void squareStep(float map[MAP_SIZE][MAP_SIZE], int x, int z, int reach) {
+float getAverage(float map[MAP_SIZE][MAP_SIZE], int x, int z, int step) {
+
+	int halfStep = step  / 2;
+	int xValue, zValue;
+	int avg = 0;
 	int count = 0;
-	float avg = 0.0f;
 
-	if (x - reach >= 0 && z - reach >= 0) {
-		avg += map[x - reach][z - reach];
+	xValue = x + halfStep;
+	zValue = z;
+	cout << xValue << " " << zValue;
+	if (inDimensions(xValue, zValue)) {
+		avg += map[xValue][zValue];
+		count++;
+	}
+	xValue = x - halfStep;
+	zValue = z;
+
+	if (inDimensions(xValue, zValue)) {
+		avg += map[xValue][zValue];
+		count++;
+	}
+	xValue = x;
+	zValue = z - halfStep;
+
+	if (inDimensions(xValue, zValue)) {
+		avg += map[xValue][zValue];
+		count++;
+	}
+	xValue = x;
+	zValue = z + halfStep;
+
+	if (inDimensions(xValue, zValue)) {
+		avg += map[xValue][zValue];
 		count++;
 	}
 
-	if (x - reach >= 0 && z + reach < MAP_SIZE) {
-		avg += map[x - reach][z + reach];
-		count++;
-	}
-
-	if (x + reach < MAP_SIZE && z - reach >= 0) {
-		avg += map[x + reach][z - reach];
-		count++;
-	}
-
-	if (x + reach < MAP_SIZE && z + reach < MAP_SIZE) {
-		avg += map[x + reach][z + reach];
-		count++;
-	}
-
-	avg += random(reach);
-	avg /= count;
-	map[x][z] = round(avg);
+	return avg / count;
 }
 
-void diamondSquare(float map[MAP_SIZE][MAP_SIZE], int size) {
-	int half = size / 2;
-	if (half < 1)
-		return;
+void diamondStep(float map[MAP_SIZE][MAP_SIZE], int x, int z, int fullStep, float roughness) {
+	
+	
+	int reach = fullStep/2;
+	float avg = map[x][z] + map[x + fullStep][z] + map[x + fullStep][z + fullStep] + map[x][z + fullStep];
 
-	for (int z = half; z < MAP_SIZE; z += size) {
-		for (int x = half; x < MAP_SIZE; x += size) {
-			squareStep(map, x % MAP_SIZE, z % MAP_SIZE, half);
-		}
-	}
+	avg /= 2.0f;
+	map[x + reach][z + reach] = avg + random(1) * roughness;
 
-	int col = 0;
-	for (int x = 0; x < MAP_SIZE; x += half) {
-		col++;
-		if (col % 2 == 1) {
-			for (int z = half; z < MAP_SIZE; z += size) {
-				diamondStep(map, x % MAP_SIZE, z % MAP_SIZE, half);
-			} 
-		}
-		else {
-			for (int z = 0; z < MAP_SIZE; z += size) {
-				diamondStep(map, x % MAP_SIZE, z % MAP_SIZE, half); 
+}
+
+void squareStep(float map[MAP_SIZE][MAP_SIZE], int x, int z, int fullStep, float roughness) {
+	int reach = fullStep/ 2;
+	float rAvg = getAverage(map,x + fullStep, z + reach, fullStep);
+	float lAvg = getAverage(map, x, z + reach, fullStep);
+	float upAvg = getAverage(map, x + reach, z, fullStep);
+	float downAvg = getAverage(map, x + reach, z + fullStep, fullStep);
+
+	map[x + fullStep][z + reach] = rAvg + random(1);
+	map[x][z + reach] = lAvg + random(1) ;
+	map[x + reach][z] = upAvg + random(1);
+	map[x + reach][z + fullStep] = downAvg + random(1);
+
+}
+
+void diamondSquare(float map[MAP_SIZE][MAP_SIZE], int size, float startSmoothness, float roughness) {
+
+	float smoothness = startSmoothness;
+	map[0][0] = random(1);
+	map[0][MAP_SIZE - 1] = random(1);
+	map[MAP_SIZE - 1][0] = random(1);
+	map[MAP_SIZE - 1][MAP_SIZE - 1] = random(1);
+
+	for (int step = MAP_SIZE - 1; step > 1; step /= 2) {
+		for (int x = 0; x < MAP_SIZE - 2; x += step) {
+			for (int z = 0; z < MAP_SIZE - 2; z += step) {
+				diamondStep(map, x, z, step, smoothness);
+				squareStep(map, x, z, step, smoothness);
 			}
+			smoothness *= roughness;
+			size /= 2;
 		}
-		diamondSquare(map, size/2);
 	}
 }
+	//int half = size / 2;
+	//smoothness *= roughness;
+	//if (half < 1)
+	//	return;
+
+	//int col = 0;
+	//for (int x = 0; x < MAP_SIZE; x += half) {
+	//	col++;
+	//	if (col % 2 == 1) {
+	//		for (int z = half; z < MAP_SIZE-2; z += size) {
+	//			diamondStep(map, x % MAP_SIZE, z % MAP_SIZE, half, roughness);
+	//		} 
+	//	}
+	//	else {
+	//		for (int z = 0; z < MAP_SIZE-2; z += size) {
+	//			diamondStep(map, x % MAP_SIZE, z % MAP_SIZE, half, roughness); 
+	//		}
+	//	}
+
+	//	for (int z = half; z < MAP_SIZE-2; z += size) {
+	//		for (int x = half; x < MAP_SIZE; x += size) {
+	//			squareStep(map, x % MAP_SIZE, z % MAP_SIZE, half, roughness);
+	//		}
+	//	}
+
+	//	diamondSquare(map, size/2, smoothness, roughness);
+	//}
+
 
 float height(vec3 point) {
 	return point.y;
@@ -221,21 +252,25 @@ vector<vec3> CalculateNormals()
 {
 	vec3 v0, v1, v2, normal;
 
-	for (int i = 0; i < MAP_SIZE; i++)
+	for (int i = 0; i < MAP_SIZE; i += 3)
 	{
 		v0 = vec3(terrainVertices[i + 0].coords);
 		v1 = vec3(terrainVertices[i + 1].coords);
 		v2 = vec3(terrainVertices[i + 2].coords);
 
 		vec3 e1 = v1 - v0;
-		vec3 e2 = v2 - v1;
+		vec3 e2 = v2 - v0;
 		vec3 e3 = v2 - v1;
 
 		normal = cross(e1, e2);
+		if (normal.z == 0) {
+			cout << "e1: " << e1.x << " " << e1.y << " " << e1.z << " e2:" << e2.x << " " << e2.y << " " << e2.z << endl;
+			terrainVertices[i + 0].normals = vec3(0,0,1);
+		}
 		cout << "preNorm: " << normal.z << endl;
 		normal = normalize(normal);
 
-		terrainVertices[i + 0].normals += normal;
+		terrainVertices[i + 0].normals = normal;
 	//	ListOfNormals.push_back(normalize(normal));
 		
 		cout << normal.z << endl;
@@ -263,7 +298,7 @@ void setup(void)
 	float rand_max = 1.0f;
 	float H = 2.0f;
 
-	diamondSquare(terrain, MAP_SIZE);
+	diamondSquare(terrain, MAP_SIZE, 10, 0.3);
 
 	// Intialise vertex array
 	int i = 0;
@@ -391,24 +426,10 @@ void setup(void)
 	modelViewMatLoc = glGetUniformLocation(programId, "modelViewMat");
 	glUniformMatrix4fv(modelViewMatLoc, 1, GL_FALSE, value_ptr(modelViewMat));
 
-	while ((err = glGetError()) != GL_NO_ERROR) {
-		cerr << " OpenGL Error: " << endl;
-	}
-
-
 	normalMatLoc = glGetUniformLocation(programId, "normalMat");
-
-	while ((err = glGetError()) != GL_NO_ERROR) {
-		cerr << " OpenGL Error: " << endl;
-	}
 
 	normalMat = transpose(inverse(mat3(modelViewMat)));
 	glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, value_ptr(normalMat));
-
-	while ((err = glGetError()) != GL_NO_ERROR) {
-		cerr << " OpenGL Error: " << endl;
-	}
-
 
 	///////////////////////////////////////
 }
@@ -417,6 +438,7 @@ void setup(void)
 void drawScene(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 
 
 	// For each row - draw the triangle strip
