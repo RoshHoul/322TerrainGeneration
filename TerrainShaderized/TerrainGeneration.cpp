@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <Windows.h>
+#include "getbmp.h"
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -15,11 +16,17 @@
 using namespace std;
 using namespace glm;
 
+float zoomFactor, cameraTheta = 0;
+int displayMode = 0;
+
 // Size of the terrain
 const int MAP_SIZE = 33;
 
 const int SCREEN_WIDTH = 500;
 const int SCREEN_HEIGHT = 500;
+
+static BitMapFile *image[1];
+static unsigned int texture[1], grassTexLoc;
 
 
 struct Vertex
@@ -136,7 +143,6 @@ float getAverage(float map[MAP_SIZE][MAP_SIZE], int x, int z, int step) {
 
 	xValue = x + halfStep;
 	zValue = z;
-	cout << xValue << " " << zValue;
 	if (inDimensions(xValue, zValue)) {
 		avg += map[xValue][zValue];
 		count++;
@@ -172,7 +178,7 @@ void diamondStep(float map[MAP_SIZE][MAP_SIZE], int x, int z, int fullStep, floa
 	int reach = fullStep/2;
 	float avg = map[x][z] + map[x + fullStep][z] + map[x + fullStep][z + fullStep] + map[x][z + fullStep];
 
-	avg /= 2.0f;
+	avg /= 4.0f;
 	map[x + reach][z + reach] = avg + random(1) * roughness;
 
 }
@@ -184,10 +190,10 @@ void squareStep(float map[MAP_SIZE][MAP_SIZE], int x, int z, int fullStep, float
 	float upAvg = getAverage(map, x + reach, z, fullStep);
 	float downAvg = getAverage(map, x + reach, z + fullStep, fullStep);
 
-	map[x + fullStep][z + reach] = rAvg + random(1);
-	map[x][z + reach] = lAvg + random(1) ;
-	map[x + reach][z] = upAvg + random(1);
-	map[x + reach][z + fullStep] = downAvg + random(1);
+	map[x + fullStep][z + reach] = rAvg + random(reach);
+	map[x][z + reach] = lAvg + random(reach) ;
+	map[x + reach][z] = upAvg + random(reach);
+	map[x + reach][z + fullStep] = downAvg + random(reach);
 
 }
 
@@ -206,38 +212,10 @@ void diamondSquare(float map[MAP_SIZE][MAP_SIZE], int size, float startSmoothnes
 				squareStep(map, x, z, step, smoothness);
 			}
 			smoothness *= roughness;
-			size /= 2;
+			
 		}
 	}
 }
-	//int half = size / 2;
-	//smoothness *= roughness;
-	//if (half < 1)
-	//	return;
-
-	//int col = 0;
-	//for (int x = 0; x < MAP_SIZE; x += half) {
-	//	col++;
-	//	if (col % 2 == 1) {
-	//		for (int z = half; z < MAP_SIZE-2; z += size) {
-	//			diamondStep(map, x % MAP_SIZE, z % MAP_SIZE, half, roughness);
-	//		} 
-	//	}
-	//	else {
-	//		for (int z = 0; z < MAP_SIZE-2; z += size) {
-	//			diamondStep(map, x % MAP_SIZE, z % MAP_SIZE, half, roughness); 
-	//		}
-	//	}
-
-	//	for (int z = half; z < MAP_SIZE-2; z += size) {
-	//		for (int x = half; x < MAP_SIZE; x += size) {
-	//			squareStep(map, x % MAP_SIZE, z % MAP_SIZE, half, roughness);
-	//		}
-	//	}
-
-	//	diamondSquare(map, size/2, smoothness, roughness);
-	//}
-
 
 float height(vec3 point) {
 	return point.y;
@@ -264,10 +242,8 @@ vector<vec3> CalculateNormals()
 
 		normal = cross(e1, e2);
 		if (normal.z == 0) {
-			cout << "e1: " << e1.x << " " << e1.y << " " << e1.z << " e2:" << e2.x << " " << e2.y << " " << e2.z << endl;
-			terrainVertices[i + 0].normals = vec3(0,0,1);
+		//	terrainVertices[i + 0].normals = vec3(0,0,1);
 		}
-		cout << "preNorm: " << normal.z << endl;
 		normal = normalize(normal);
 
 		terrainVertices[i + 0].normals = normal;
@@ -298,7 +274,7 @@ void setup(void)
 	float rand_max = 1.0f;
 	float H = 2.0f;
 
-	diamondSquare(terrain, MAP_SIZE, 10, 0.3);
+	diamondSquare(terrain, MAP_SIZE, 5, 0.5);
 
 	// Intialise vertex array
 	int i = 0;
@@ -308,7 +284,7 @@ void setup(void)
 		for (int x = 0; x < MAP_SIZE; x++)
 		{
 			// Set the coords (1st 4 elements) and a default colour of black (2nd 4 elements) 
-			terrainVertices[i] = { { vec4((float)x, terrain[x][z], (float)z, 1.0) }	};
+			terrainVertices[i] = { { vec4((float)x, terrain[x][z], (float)z, 1.0) }, {vec3(0,1,0) } };
 
 			i++;
 		}
@@ -396,6 +372,22 @@ void setup(void)
 	glEnableVertexAttribArray(1);
 	///////////////////////////////////////
 
+	image[0] = getbmp("Textures/DeepForest.bmp");
+	glGenTextures(1, texture);
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture[0]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image[0]->sizeX, image[0]->sizeY, 0, GL_RGBA, GL_UNSIGNED_BYTE, image[0]->data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	
+	grassTexLoc = glGetUniformLocation(programId, "grassTex");
+	glUniform1i(grassTexLoc, 0);
+
+
 	// Obtain projection matrix uniform location and set value.
 	projMatLoc = glGetUniformLocation(programId, "projMat");
 	projMat = perspective(radians(60.0), (double)SCREEN_WIDTH / (double)SCREEN_HEIGHT, 0.1, 100.0);
@@ -439,6 +431,49 @@ void drawScene(void)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+	modelViewMatLoc = glGetUniformLocation(programId, "modelViewMat");
+	vec3 eye, center, up, los;
+	eye = vec3(10, 5, -10);
+	center = vec3(0, 0, 0);
+	up = vec3(0, 1, 0);
+	los = vec3(0, 0, 10);
+
+	if (displayMode == 0)
+	{
+		eye.x = 0.0f; eye.y = 10.0f; eye.z = 50.0f;
+		up.x = 0.0f; up.y = 1.0f; up.z = 0.0f;
+	}
+	else if (displayMode == 1)
+	{
+		eye.x = 50.0f; eye.y = 10.0f; eye.z = 0.0f;
+		up.x = 0.0f; up.y = 1.0f; up.z = 0.0f;
+	}
+	else if (displayMode == 2)
+	{
+		eye.x = 0.0f; eye.y = 100.0f; eye.z = 0.0f;
+		up.x = 0.0f; up.y = 0.0f; up.z = 1.0f;
+	}
+	else if (displayMode == 3)
+	{
+		eye.x = 0.0f; eye.y = 10.0f; eye.z = 50.0f;
+		up.x = 0.0f; up.y = 1.0f; up.z = 0.0f;
+		los.x = 0.0f; los.y = 0.0f; los.z = -1.0f;
+		eye.x = eye.x + los.x * zoomFactor;
+		eye.z = eye.z + los.z * zoomFactor;
+	}
+	else
+	{
+		eye.x = 0.0f; eye.y = 10.0f; eye.z = 50.0f;
+		up.x = 0.0f; up.y = 1.0f; up.z = 0.0f;
+		los.x = eye.x * cos(radians(cameraTheta)) - eye.z * sin(radians(cameraTheta));
+		los.z = eye.x * sin(radians(cameraTheta)) + eye.z * cos(radians(cameraTheta));
+		eye.x = los.x;
+		eye.z = los.z;
+	}
+
+	center.x = MAP_SIZE / 2; center.y = 0.0f; center.z = MAP_SIZE / 2;
+	mat4 modelViewMat = lookAt(eye, center, up);
+	glUniformMatrix4fv(modelViewMatLoc, 1, GL_FALSE, value_ptr(modelViewMat));
 
 
 	// For each row - draw the triangle strip
@@ -447,16 +482,14 @@ void drawScene(void)
 		glDrawElements(GL_TRIANGLE_STRIP, verticesPerStrip, GL_UNSIGNED_INT, terrainIndexData[i]);
 	}
 
-	glFlush();
+	glutSwapBuffers();
 }
 
-// OpenGL window reshape routine.
-void resize(int w, int h)
-{
+void resize(int w, int h) {
 	glViewport(0, 0, w, h);
 }
 
-// Keyboard input processing routine.
+// OpenGL window reshape routine.
 void keyInput(unsigned char key, int x, int y)
 {
 	switch (key)
@@ -464,9 +497,38 @@ void keyInput(unsigned char key, int x, int y)
 	case 27:
 		exit(0);
 		break;
+	case 'w':
+		zoomFactor = 0.0f;
+		displayMode = 0;
+		break;
+	case 'a':
+		zoomFactor = 0.0f;
+		displayMode = 1;
+		break;
+	case 's':
+		zoomFactor = 0.0f;
+		displayMode = 2;
+		break;
+	case 'd':
+		zoomFactor = zoomFactor + 1.0f;
+		displayMode = 3;
+		break;
+	case 'l':
+		zoomFactor = zoomFactor - 1.0f;
+		displayMode = 3;
+		break;
+	case 'b':
+		cameraTheta = cameraTheta + 10.0f;
+		displayMode = 4;
+		break;
+	case 'n':
+		cameraTheta = cameraTheta - 10.0f;
+		displayMode = 4;
+		break;
 	default:
 		break;
 	}
+	glutPostRedisplay();
 }
 
 // Main routine.
